@@ -36,26 +36,43 @@
       ".problems-navbar__title",
       "[class*='problems_header'] h1",
       "[class*='problem-title']",
-      "h1",
-    ];
-    for (const sel of selectors) {
-      const el = document.querySelector(sel);
-      if (el && el.textContent.trim()) return el.textContent.trim();
-    }
-    // Fallback: use page title
-    return document.title.replace(" | GeeksForGeeks", "").replace(" - GeeksForGeeks", "").trim();
-  }
-
-  // --- Extract difficulty ---
-  function getDifficulty() {
-    const selectors = [
-      "[class*='difficulty']",
-      "[class*='Difficulty']",
-      ".problems_header_content__difficulty__KGkt",
     ];
     for (const sel of selectors) {
       const el = document.querySelector(sel);
       if (el && el.textContent.trim()) {
+        // Strip everything after | or - to avoid page suffix noise
+        return el.textContent.split("|")[0].split("-")[0].trim();
+      }
+    }
+
+    // Fallback 1: Extract from URL slug — most reliable
+    // e.g. /problems/trapping-rain-water-1587115621/1 → "Trapping Rain Water"
+    const urlMatch = window.location.pathname.match(/\/problems\/([^/]+)/);
+    if (urlMatch) {
+      return urlMatch[1]
+        .replace(/-\d+$/, "")      // remove trailing number like -1587115621
+        .replace(/-/g, " ")        // dashes to spaces
+        .replace(/\b\w/g, (c) => c.toUpperCase()); // Title Case
+    }
+
+    // Fallback 2: page title, strip everything after first |
+    return document.title.split("|")[0].trim();
+  }
+
+  // --- Extract difficulty ---
+  function getDifficulty() {
+    // Search ALL elements matching difficulty-related class names
+    const selectors = [
+      "[class*='difficulty']",
+      "[class*='Difficulty']",
+      "[class*='problemDifficulty']",
+      "[class*='problem_difficulty']",
+      "[class*='diffTag']",
+      ".problems_header_content__difficulty__KGkt",
+    ];
+    for (const sel of selectors) {
+      const els = document.querySelectorAll(sel); // check ALL matches
+      for (const el of els) {
         const text = el.textContent.trim().toLowerCase();
         if (text.includes("easy")) return "Easy";
         if (text.includes("medium")) return "Medium";
@@ -64,6 +81,18 @@
         if (text.includes("basic")) return "Basic";
       }
     }
+
+    // Fallback: scan full page text for difficulty badge
+    const bodyText = document.body.innerText.toLowerCase();
+    const patterns = [
+      { key: "difficulty: hard", val: "Hard" },
+      { key: "difficulty: medium", val: "Medium" },
+      { key: "difficulty: easy", val: "Easy" },
+    ];
+    for (const { key, val } of patterns) {
+      if (bodyText.includes(key)) return val;
+    }
+
     return "Unknown";
   }
 
@@ -168,26 +197,25 @@
   }
 
   // --- Map language to file extension ---
+  // Uses startsWith/includes to handle values like "Java (21)", "C++ 17", "Python 3"
   function getExtension(lang) {
-    const map = {
-      "c++": "cpp",
-      cpp: "cpp",
-      c: "c",
-      java: "java",
-      python: "py",
-      "python3": "py",
-      javascript: "js",
-      "js": "js",
-      "c#": "cs",
-      csharp: "cs",
-      go: "go",
-      kotlin: "kt",
-      swift: "swift",
-      ruby: "rb",
-      rust: "rs",
-      php: "php",
-    };
-    return map[lang.toLowerCase()] || "txt";
+    const l = lang.toLowerCase().trim();
+    if (l.startsWith("c++") || l.startsWith("cpp"))  return "cpp";
+    if (l.startsWith("c#") || l.startsWith("csharp")) return "cs";
+    if (l.startsWith("c ") || l === "c")             return "c";
+    if (l.startsWith("java") && !l.startsWith("javascript")) return "java";
+    if (l.startsWith("python") || l.startsWith("py")) return "py";
+    if (l.startsWith("javascript") || l.startsWith("js")) return "js";
+    if (l.startsWith("typescript") || l.startsWith("ts")) return "ts";
+    if (l.startsWith("kotlin"))   return "kt";
+    if (l.startsWith("swift"))    return "swift";
+    if (l.startsWith("go") || l.startsWith("golang")) return "go";
+    if (l.startsWith("ruby"))     return "rb";
+    if (l.startsWith("rust"))     return "rs";
+    if (l.startsWith("php"))      return "php";
+    if (l.startsWith("scala"))    return "scala";
+    if (l.startsWith("perl"))     return "pl";
+    return "txt";
   }
 
   // --- Sanitize filename ---
@@ -201,9 +229,13 @@
 
   // --- Build the file path in repo ---
   // Files go inside: GfG/Difficulty/problem-name.ext
+  // If difficulty is Unknown, push directly into GfG/ (no subfolder)
   function buildFilePath(title, difficulty, lang) {
     const ext = getExtension(lang);
     const filename = sanitizeFilename(title);
+    if (!difficulty || difficulty === "Unknown") {
+      return `GfG/${filename}.${ext}`;
+    }
     return `GfG/${difficulty}/${filename}.${ext}`;
   }
 
