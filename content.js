@@ -251,7 +251,17 @@
 
         if (response.success) {
           const fileUrl = `https://github.com/${settings.owner}/${settings.repo}/blob/main/${filePath}`;
-          setStatus("success", `✅ Pushed! <a href="${fileUrl}" target="_blank">View on GitHub ↗</a>`);
+          // Build success message safely using DOM — no innerHTML
+          const fragment = document.createDocumentFragment();
+          const checkMark = document.createTextNode("✅ Pushed! ");
+          const link = document.createElement("a");
+          link.href = fileUrl;
+          link.target = "_blank";
+          link.rel = "noopener noreferrer";
+          link.textContent = "View on GitHub ↗";
+          fragment.appendChild(checkMark);
+          fragment.appendChild(link);
+          setStatus("success", fragment);
         } else {
           setStatus("error", `❌ Error: ${response.error}`);
         }
@@ -262,12 +272,21 @@
       btn.disabled = false;
     });
 
-    function setStatus(type, html) {
-      status.innerHTML = html;
+    function setStatus(type, content) {
+      // Clear previous content safely
+      status.textContent = "";
       status.className = `gfg-gh-status gfg-gh-status--${type}`;
+
+      if (typeof content === "string") {
+        status.textContent = content;
+      } else {
+        // content is a DOM node (for success with a link)
+        status.appendChild(content);
+      }
+
       if (type === "success") {
         setTimeout(() => {
-          status.innerHTML = "";
+          status.textContent = "";
           status.className = "gfg-gh-status";
         }, 8000);
       }
@@ -290,7 +309,7 @@
   // --- Load settings from Chrome storage ---
   function getSettings() {
     return new Promise((resolve) => {
-      chrome.storage.sync.get(["token", "owner", "repo"], (items) => resolve(items));
+      chrome.storage.local.get(["token", "owner", "repo"], (items) => resolve(items));
     });
   }
 

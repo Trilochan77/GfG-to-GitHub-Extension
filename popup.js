@@ -9,7 +9,7 @@ const statusBanner = document.getElementById("status-banner");
 const toggleTokenBtn = document.getElementById("toggle-token");
 
 // --- Load saved settings on open ---
-chrome.storage.sync.get(["token", "owner", "repo"], (items) => {
+chrome.storage.local.get(["token", "owner", "repo"], (items) => {
   if (items.token) tokenInput.value = items.token;
   if (items.owner) ownerInput.value = items.owner;
   if (items.repo) repoInput.value = items.repo;
@@ -66,7 +66,7 @@ saveBtn.addEventListener("click", async () => {
     return;
   }
 
-  chrome.storage.sync.set({ token, owner, repo }, () => {
+  chrome.storage.local.set({ token, owner, repo }, () => {
     showBanner("success", `✅ Saved! Repo: ${owner}/${repo}`);
     saveBtnText.textContent = "Saved ✓";
     setTimeout(() => {
@@ -99,7 +99,7 @@ async function verifyGitHubCredentials(token, owner, repo) {
 // --- Show banner ---
 function showBanner(type, message) {
   statusBanner.className = `status-banner ${type}`;
-  statusBanner.textContent = message;
+  statusBanner.textContent = message; // textContent — safe, no XSS risk
   statusBanner.classList.remove("hidden");
   setTimeout(() => {
     statusBanner.classList.add("hidden");
