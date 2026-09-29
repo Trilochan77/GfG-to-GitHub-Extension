@@ -9,7 +9,7 @@
     "scripting"
   ],
   "host_permissions": [
-    "https://www.geeksforgeeks.org/*",
+    "https://*.geeksforgeeks.org/*",
     "https://api.github.com/*"
   ],
   "background": {
@@ -17,9 +17,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://www.geeksforgeeks.org/*"],
+      "matches": ["https://*.geeksforgeeks.org/*"],
       "js": ["content.js"],
       "css": ["styles.css"],
+      "all_frames": true,
       "run_at": "document_idle"
     }
   ],
