@@ -143,10 +143,11 @@
   }
 
   // --- Build the file path in repo ---
+  // Files go inside: GfG/Difficulty/problem-name.ext
   function buildFilePath(title, difficulty, lang) {
     const ext = getExtension(lang);
     const filename = sanitizeFilename(title);
-    return `${difficulty}/${filename}.${ext}`;
+    return `GfG/${difficulty}/${filename}.${ext}`;
   }
 
   // --- Inject the Push to GitHub button ---

@@ -13,7 +13,7 @@ chrome.storage.local.get(["token", "owner", "repo"], (items) => {
   if (items.token) tokenInput.value = items.token;
   // Pre-fill defaults for Trilochan77
   ownerInput.value = items.owner || "Trilochan77";
-  repoInput.value = items.repo || "GfG-to-GitHub-Extension";
+  repoInput.value = items.repo || "Competitive-Coding-Java-";
   validateInputs();
 });
 
