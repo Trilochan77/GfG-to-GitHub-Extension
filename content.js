@@ -67,30 +67,31 @@
     return "Unknown";
   }
 
-  // --- Extract the user's code from the editor ---
-  function extractCode() {
-
-    // ✅ Strategy 1: CodeMirror JS object (most reliable for GFG)
-    // Directly accesses the editor instance — works even if DOM lines are lazy-loaded
+  // --- Helper: try to extract code from a given document context ---
+  function extractFromDoc(doc) {
     try {
-      const cmEl = document.querySelector(".CodeMirror");
+      // Strategy A: CodeMirror JS object (most reliable)
+      const cmEl = doc.querySelector(".CodeMirror");
       if (cmEl && cmEl.CodeMirror) {
         const code = cmEl.CodeMirror.getValue();
         if (code && code.trim().length > 0) return code;
       }
     } catch (_) {}
 
-    // ✅ Strategy 2: CodeMirror DOM lines
-    const cmLines = document.querySelectorAll(".CodeMirror-line");
-    if (cmLines.length > 0) {
-      const code = Array.from(cmLines).map((l) => l.innerText).join("\n");
-      if (code.trim().length > 0) return code;
-    }
-
-    // ✅ Strategy 3: Monaco Editor JS object
     try {
-      if (window.monaco && window.monaco.editor) {
-        const editors = window.monaco.editor.getEditors();
+      // Strategy B: CodeMirror DOM lines
+      const cmLines = doc.querySelectorAll(".CodeMirror-line");
+      if (cmLines.length > 0) {
+        const code = Array.from(cmLines).map((l) => l.innerText).join("\n");
+        if (code.trim().length > 0) return code;
+      }
+    } catch (_) {}
+
+    try {
+      // Strategy C: Monaco editor JS object
+      const win = doc.defaultView;
+      if (win && win.monaco && win.monaco.editor) {
+        const editors = win.monaco.editor.getEditors();
         if (editors && editors.length > 0) {
           const code = editors[0].getValue();
           if (code && code.trim().length > 0) return code;
@@ -98,35 +99,52 @@
       }
     } catch (_) {}
 
-    // ✅ Strategy 4: Monaco Editor DOM lines
-    const monacoLines = document.querySelectorAll(".view-line");
-    if (monacoLines.length > 0) {
-      const code = Array.from(monacoLines).map((l) => l.innerText).join("\n");
-      if (code.trim().length > 0) return code;
+    try {
+      // Strategy D: Monaco DOM lines
+      const monacoLines = doc.querySelectorAll(".view-line");
+      if (monacoLines.length > 0) {
+        const code = Array.from(monacoLines).map((l) => l.innerText).join("\n");
+        if (code.trim().length > 0) return code;
+      }
+    } catch (_) {}
+
+    try {
+      // Strategy E: textarea fallback
+      const selectors = [
+        ".CodeMirror textarea",
+        ".editor-container textarea",
+        "textarea.inputarea",
+        "textarea[class*='editor']",
+      ];
+      for (const sel of selectors) {
+        const ta = doc.querySelector(sel);
+        if (ta && ta.value && ta.value.trim().length > 0) return ta.value;
+      }
+    } catch (_) {}
+
+    return null;
+  }
+
+  // --- Extract the user's code from the editor ---
+  function extractCode() {
+    // First try main document
+    const mainCode = extractFromDoc(document);
+    if (mainCode) return mainCode;
+
+    // ✅ GFG loads the editor inside an iframe — search all iframes
+    const iframes = document.querySelectorAll("iframe");
+    for (const iframe of iframes) {
+      try {
+        const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!iDoc) continue;
+        const code = extractFromDoc(iDoc);
+        if (code) return code;
+      } catch (_) {
+        // Cross-origin iframe — skip safely
+      }
     }
 
-    // ✅ Strategy 5: Any hidden textarea inside the editor wrapper
-    const editorWrappers = [
-      ".editor-container textarea",
-      ".CodeMirror textarea",
-      "textarea.inputarea",
-      "textarea[class*='editor']",
-      "textarea",
-    ];
-    for (const sel of editorWrappers) {
-      const ta = document.querySelector(sel);
-      if (ta && ta.value && ta.value.trim().length > 0) return ta.value;
-    }
-
-    // ✅ Strategy 6: GFG-specific editor wrapper innerText fallback
-    const gfgEditorWrap = document.querySelector(
-      "[class*='editor_container'], [class*='editorContainer'], [class*='code-editor']"
-    );
-    if (gfgEditorWrap) {
-      const code = gfgEditorWrap.innerText;
-      if (code && code.trim().length > 0) return code;
-    }
-
+    console.warn("[GfG→GitHub] Could not extract code. Iframes found:", iframes.length);
     return null;
   }
 
