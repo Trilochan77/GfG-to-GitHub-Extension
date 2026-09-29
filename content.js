@@ -228,15 +228,11 @@
   }
 
   // --- Build the file path in repo ---
-  // Files go inside: GfG/Difficulty/problem-name.ext
-  // If difficulty is Unknown, push directly into GfG/ (no subfolder)
+  // Files go directly into: GfG/problem-name.ext
   function buildFilePath(title, difficulty, lang) {
     const ext = getExtension(lang);
     const filename = sanitizeFilename(title);
-    if (!difficulty || difficulty === "Unknown") {
-      return `GfG/${filename}.${ext}`;
-    }
-    return `GfG/${difficulty}/${filename}.${ext}`;
+    return `GfG/${filename}.${ext}`;
   }
 
   // --- Inject the Push to GitHub button ---
