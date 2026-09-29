@@ -11,8 +11,9 @@ const toggleTokenBtn = document.getElementById("toggle-token");
 // --- Load saved settings on open ---
 chrome.storage.local.get(["token", "owner", "repo"], (items) => {
   if (items.token) tokenInput.value = items.token;
-  if (items.owner) ownerInput.value = items.owner;
-  if (items.repo) repoInput.value = items.repo;
+  // Pre-fill defaults for Trilochan77
+  ownerInput.value = items.owner || "Trilochan77";
+  repoInput.value = items.repo || "GfG-to-GitHub-Extension";
   validateInputs();
 });
 
