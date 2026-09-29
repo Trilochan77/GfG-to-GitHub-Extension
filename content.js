@@ -98,82 +98,146 @@
 
   // --- Helper: try to extract code from a given document context ---
   function extractFromDoc(doc) {
-    try {
-      // Strategy A: CodeMirror JS object (most reliable)
-      const cmEl = doc.querySelector(".CodeMirror");
-      if (cmEl && cmEl.CodeMirror) {
-        const code = cmEl.CodeMirror.getValue();
-        if (code && code.trim().length > 0) return code;
-      }
-    } catch (_) {}
+    const win = doc.defaultView || window;
 
+    // Strategy A: Scan EVERY element for CodeMirror instance
     try {
-      // Strategy B: CodeMirror DOM lines
-      const cmLines = doc.querySelectorAll(".CodeMirror-line");
-      if (cmLines.length > 0) {
-        const code = Array.from(cmLines).map((l) => l.innerText).join("\n");
-        if (code.trim().length > 0) return code;
-      }
-    } catch (_) {}
-
-    try {
-      // Strategy C: Monaco editor JS object
-      const win = doc.defaultView;
-      if (win && win.monaco && win.monaco.editor) {
-        const editors = win.monaco.editor.getEditors();
-        if (editors && editors.length > 0) {
-          const code = editors[0].getValue();
-          if (code && code.trim().length > 0) return code;
+      const allEls = doc.querySelectorAll("*");
+      for (const el of allEls) {
+        if (el.CodeMirror && typeof el.CodeMirror.getValue === "function") {
+          const code = el.CodeMirror.getValue();
+          if (code && code.trim().length > 0) {
+            console.log("[GfG→GitHub] ✅ Got code via Strategy A (CM element property)");
+            return code;
+          }
         }
       }
     } catch (_) {}
 
+    // Strategy B: Search window globals for a CodeMirror instance
     try {
-      // Strategy D: Monaco DOM lines
-      const monacoLines = doc.querySelectorAll(".view-line");
-      if (monacoLines.length > 0) {
-        const code = Array.from(monacoLines).map((l) => l.innerText).join("\n");
-        if (code.trim().length > 0) return code;
+      const globalKeys = Object.keys(win);
+      for (const key of globalKeys) {
+        try {
+          const obj = win[key];
+          if (
+            obj &&
+            typeof obj.getValue === "function" &&
+            typeof obj.setCursor === "function" &&
+            obj.doc
+          ) {
+            const code = obj.getValue();
+            if (code && code.trim().length > 0) {
+              console.log("[GfG→GitHub] ✅ Got code via Strategy B (window." + key + ")");
+              return code;
+            }
+          }
+        } catch (_) {}
       }
     } catch (_) {}
 
+    // Strategy C: Monaco editor
     try {
-      // Strategy E: textarea fallback
-      const selectors = [
+      if (win.monaco && win.monaco.editor) {
+        const editors = win.monaco.editor.getEditors();
+        if (editors && editors.length > 0) {
+          const code = editors[0].getValue();
+          if (code && code.trim().length > 0) {
+            console.log("[GfG→GitHub] ✅ Got code via Strategy C (Monaco)");
+            return code;
+          }
+        }
+      }
+    } catch (_) {}
+
+    // Strategy D: CodeMirror lines from DOM
+    try {
+      const cmLines = doc.querySelectorAll(".CodeMirror-line");
+      if (cmLines.length > 0) {
+        const code = Array.from(cmLines).map((l) => l.innerText).join("\n");
+        if (code.trim().length > 0) {
+          console.log("[GfG→GitHub] ✅ Got code via Strategy D (CM lines)");
+          return code;
+        }
+      }
+    } catch (_) {}
+
+    // Strategy E: Monaco view lines
+    try {
+      const monacoLines = doc.querySelectorAll(".view-line");
+      if (monacoLines.length > 0) {
+        const code = Array.from(monacoLines).map((l) => l.innerText).join("\n");
+        if (code.trim().length > 0) {
+          console.log("[GfG→GitHub] ✅ Got code via Strategy E (Monaco lines)");
+          return code;
+        }
+      }
+    } catch (_) {}
+
+    // Strategy F: Hidden textarea (CodeMirror keeps one in sync)
+    try {
+      const taSelectors = [
         ".CodeMirror textarea",
         ".editor-container textarea",
         "textarea.inputarea",
         "textarea[class*='editor']",
       ];
-      for (const sel of selectors) {
+      for (const sel of taSelectors) {
         const ta = doc.querySelector(sel);
-        if (ta && ta.value && ta.value.trim().length > 0) return ta.value;
+        if (ta && ta.value && ta.value.trim().length > 0) {
+          console.log("[GfG→GitHub] ✅ Got code via Strategy F (textarea)");
+          return ta.value;
+        }
       }
     } catch (_) {}
 
+    // Debug info
+    const cmCount = doc.querySelectorAll(".CodeMirror").length;
+    const cmLineCount = doc.querySelectorAll(".CodeMirror-line").length;
+    const iframeCount = doc.querySelectorAll("iframe").length;
+    console.log(
+      `[GfG→GitHub] ❌ extractFromDoc failed | .CodeMirror: ${cmCount} | .CodeMirror-line: ${cmLineCount} | iframes: ${iframeCount}`
+    );
     return null;
   }
 
-  // --- Extract the user's code from the editor ---
-  function extractCode() {
-    // First try main document
-    const mainCode = extractFromDoc(document);
-    if (mainCode) return mainCode;
+  // --- Extract code with retry ---
+  async function extractCode() {
+    // Try immediately
+    let code = extractFromDoc(document);
+    if (code) return code;
 
-    // ✅ GFG loads the editor inside an iframe — search all iframes
+    // Search all iframes
     const iframes = document.querySelectorAll("iframe");
     for (const iframe of iframes) {
       try {
         const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
         if (!iDoc) continue;
-        const code = extractFromDoc(iDoc);
-        if (code) return code;
-      } catch (_) {
-        // Cross-origin iframe — skip safely
-      }
+        code = extractFromDoc(iDoc);
+        if (code) {
+          console.log("[GfG→GitHub] ✅ Got code from iframe");
+          return code;
+        }
+      } catch (_) {}
     }
 
-    console.warn("[GfG→GitHub] Could not extract code. Iframes found:", iframes.length);
+    // Retry after 1s — editor may still be initializing
+    console.log("[GfG→GitHub] Retrying after 1s...");
+    await new Promise((r) => setTimeout(r, 1000));
+
+    code = extractFromDoc(document);
+    if (code) return code;
+
+    for (const iframe of iframes) {
+      try {
+        const iDoc = iframe.contentDocument || iframe.contentWindow?.document;
+        if (!iDoc) continue;
+        code = extractFromDoc(iDoc);
+        if (code) return code;
+      } catch (_) {}
+    }
+
+    console.warn("[GfG→GitHub] All strategies failed. iframes:", iframes.length);
     return null;
   }
 
@@ -301,7 +365,7 @@
           return;
         }
 
-        const code = extractCode();
+        const code = await extractCode();
         if (!code || code.trim().length === 0) {
           setStatus("error", "❌ Could not extract code. Is the editor loaded?");
           btn.disabled = false;
