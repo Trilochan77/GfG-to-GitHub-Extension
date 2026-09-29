@@ -69,28 +69,67 @@
 
   // --- Extract the user's code from the editor ---
   function extractCode() {
-    // Try CodeMirror (most common on GFG)
+
+    // ✅ Strategy 1: CodeMirror JS object (most reliable for GFG)
+    // Directly accesses the editor instance — works even if DOM lines are lazy-loaded
+    try {
+      const cmEl = document.querySelector(".CodeMirror");
+      if (cmEl && cmEl.CodeMirror) {
+        const code = cmEl.CodeMirror.getValue();
+        if (code && code.trim().length > 0) return code;
+      }
+    } catch (_) {}
+
+    // ✅ Strategy 2: CodeMirror DOM lines
     const cmLines = document.querySelectorAll(".CodeMirror-line");
     if (cmLines.length > 0) {
-      return Array.from(cmLines)
-        .map((line) => line.innerText)
-        .join("\n");
+      const code = Array.from(cmLines).map((l) => l.innerText).join("\n");
+      if (code.trim().length > 0) return code;
     }
 
-    // Try Monaco Editor
+    // ✅ Strategy 3: Monaco Editor JS object
+    try {
+      if (window.monaco && window.monaco.editor) {
+        const editors = window.monaco.editor.getEditors();
+        if (editors && editors.length > 0) {
+          const code = editors[0].getValue();
+          if (code && code.trim().length > 0) return code;
+        }
+      }
+    } catch (_) {}
+
+    // ✅ Strategy 4: Monaco Editor DOM lines
     const monacoLines = document.querySelectorAll(".view-line");
     if (monacoLines.length > 0) {
-      return Array.from(monacoLines)
-        .map((line) => line.innerText)
-        .join("\n");
+      const code = Array.from(monacoLines).map((l) => l.innerText).join("\n");
+      if (code.trim().length > 0) return code;
     }
 
-    // Try textarea fallback
-    const textarea = document.querySelector("textarea.editor-code");
-    if (textarea) return textarea.value;
+    // ✅ Strategy 5: Any hidden textarea inside the editor wrapper
+    const editorWrappers = [
+      ".editor-container textarea",
+      ".CodeMirror textarea",
+      "textarea.inputarea",
+      "textarea[class*='editor']",
+      "textarea",
+    ];
+    for (const sel of editorWrappers) {
+      const ta = document.querySelector(sel);
+      if (ta && ta.value && ta.value.trim().length > 0) return ta.value;
+    }
+
+    // ✅ Strategy 6: GFG-specific editor wrapper innerText fallback
+    const gfgEditorWrap = document.querySelector(
+      "[class*='editor_container'], [class*='editorContainer'], [class*='code-editor']"
+    );
+    if (gfgEditorWrap) {
+      const code = gfgEditorWrap.innerText;
+      if (code && code.trim().length > 0) return code;
+    }
 
     return null;
   }
+
 
   // --- Get selected language ---
   function getLanguage() {
